@@ -32,6 +32,7 @@ const golden = examples.map((ex) => ({
 mkdirSync('docs/data', { recursive: true });
 writeFileSync('data/golden.json', JSON.stringify({
   model, revision,
+  measured: '2026-11-13',
   variants: { v1: 'fp16', v2: 'int8' },
   task: 'sentiment (SST-2 validation split, GLUE benchmark)',
   slices: RULES.map(([n]) => n).concat(['long', 'short', 'plain']),

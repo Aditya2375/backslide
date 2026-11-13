@@ -45,7 +45,7 @@ const v = verdict(
 );
 
 const snapshot = {
-  generated: new Date().toISOString().slice(0, 10),
+  generated: golden.measured,
   pins: {
     classifier: { model: golden.model, revision: golden.revision, variants: golden.variants },
     dataset: { name: 'GLUE SST-2 validation split', n: examples.length },
