@@ -45,7 +45,7 @@ The gate is honest both ways: a significant regression holds the build, and an i
 ```sh
 npm ci
 npm run build          # type-check + compile
-npm test               # 25 unit tests (statistics against known values)
+npm test               # 18 unit tests (statistics against known values)
 node scripts/build-web.mjs
 node tests/browser-smoke.mjs   # 17 end-to-end checks in headless Chrome
 SMOKE_LIVE=1 node tests/browser-smoke.mjs   # +2 checks: live probe with both pinned builds
@@ -83,6 +83,6 @@ docs/               built site, served by GitHub Pages
 
 ## Guarantees
 
-- 25 unit tests pin the statistics to known values (textbook Fisher/McNemar/erfc constants, the measured golden-set numbers).
+- 18 unit tests pin the statistics to known values (textbook Fisher/McNemar/erfc constants, the measured golden-set numbers).
 - 17 browser smoke checks (19 with `SMOKE_LIVE=1`) cover boot, gate interactivity, filters, canvases, the live two-build probe and markup-injection safety.
 - No backend, no tracking, no keys; the page's CSP allows only itself and the pinned model hosts.

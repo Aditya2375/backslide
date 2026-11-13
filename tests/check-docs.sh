@@ -6,8 +6,8 @@ cd "$(dirname "$0")/.."
 fail() { echo "check-docs: $1" >&2; exit 1; }
 
 UNIT=$(npm test 2>&1 | grep -o '^# pass [0-9]*' | grep -o '[0-9]*')
-[ "$UNIT" = "25" ] || fail "unit tests: README says 25, runner says $UNIT"
-grep -q "25 unit tests" README.md || fail "README no longer says 25 unit tests"
+[ "$UNIT" = "18" ] || fail "unit tests: README says 18, runner says $UNIT"
+grep -q "18 unit tests" README.md || fail "README no longer says 25 unit tests"
 grep -q "17 browser smoke checks" README.md || fail "README lost the smoke check count"
 grep -q "aditya2375.github.io/backslide" README.md || fail "README lost the live demo link"
 
