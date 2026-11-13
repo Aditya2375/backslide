@@ -288,10 +288,12 @@ function wireProbe(): void {
 function withCanvas(id: string, draw: (ctx: CanvasRenderingContext2D, w: number, h: number) => void): void {
   const canvas = $(id) as unknown as HTMLCanvasElement;
   const dpr = window.devicePixelRatio || 1;
-  const w = canvas.width, h = canvas.height;
-  canvas.width = w * dpr;
-  canvas.height = h * dpr;
-  canvas.style.width = `${w}px`;
+  // draw at the container's CSS width so narrow viewports never overflow;
+  // the height attribute fixes the aspect the CSS scales to
+  const h = Number(canvas.getAttribute('height')) || 320;
+  const w = canvas.clientWidth || Number(canvas.getAttribute('width')) || 640;
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
   canvas.style.height = `${h}px`;
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -544,6 +546,12 @@ async function main(): Promise<void> {
   drawForest();
   renderSliceTable();
   renderExemplars();
+
+  let resizeTimer = 0;
+  window.addEventListener('resize', () => {
+    window.clearTimeout(resizeTimer);
+    resizeTimer = window.setTimeout(() => { drawHistogram(); drawForest(); }, 150);
+  });
 }
 
 main().catch((err) => {

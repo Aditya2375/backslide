@@ -149,7 +149,7 @@ textarea:focus, select:focus { outline: 2px solid var(--accent); outline-offset:
 .stat-v.bad { color: var(--bad); }
 .stat-v.accent { color: var(--accent); }
 .stat-k { color: var(--text-faint); font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; margin-top: 2px; }
-.stat-ci { color: var(--text-faint); font-family: var(--mono); font-size: 11px; }
+.stat-ci { color: var(--text-faint); font-family: var(--mono); font-size: 12px; }
 
 .feed-head { color: var(--text-faint); font-size: 12px; padding: 8px 2px; }
 .event-feed {
@@ -188,7 +188,7 @@ tr.hl td { background: rgba(227, 160, 8, 0.07); }
 .g-note { color: var(--text-faint); font-size: 12px; margin-bottom: 10px; }
 .g-outcomes { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .g-col { font-size: 13px; padding: 10px 12px; border-radius: 6px; background: var(--bg-inset); }
-.g-col .g-col-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-faint); display: block; margin-bottom: 4px; }
+.g-col .g-col-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-faint); display: block; margin-bottom: 4px; }
 .g-col.bad { box-shadow: inset 0 0 0 1px rgba(229, 83, 75, 0.35); }
 .g-col.good { box-shadow: inset 0 0 0 1px rgba(63, 178, 127, 0.3); }
 .g-col .bad { color: var(--bad); }
@@ -266,7 +266,7 @@ input[type="range"]::-moz-range-thumb {
 .gate-reasons li .t-detail.bad { color: var(--bad); }
 
 /* discordance cards */
-.g-kind { font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+.g-kind { font-family: var(--mono); font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
 .g-kind.regression { color: var(--bad); }
 .g-kind.improvement { color: var(--ok); }
 .g-scores { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 10px; }
@@ -274,17 +274,17 @@ input[type="range"]::-moz-range-thumb {
   font-family: var(--mono); font-size: 12.5px; padding: 8px 12px; border-radius: 6px;
   background: var(--bg-inset); color: var(--text-dim);
 }
-.g-score .who { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-faint); margin-bottom: 2px; }
+.g-score .who { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-faint); margin-bottom: 2px; }
 .g-score .right { color: var(--ok); }
 .g-score .wrong { color: var(--bad); }
-.g-slice { font-family: var(--mono); font-size: 11px; color: var(--text-faint); margin-left: 8px; }
+.g-slice { font-family: var(--mono); font-size: 12px; color: var(--text-faint); margin-left: 8px; }
 
 /* probe */
 .probe { margin-top: 40px; border-top: 1px solid var(--line); padding-top: 8px; }
 .probe-result { margin-top: 18px; }
 .probe-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .probe-col { background: var(--bg-raise); border: 1px solid var(--line); border-radius: 8px; padding: 14px 18px; }
-.probe-col .who { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-faint); display: block; margin-bottom: 6px; }
+.probe-col .who { font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-faint); display: block; margin-bottom: 6px; }
 .probe-col .pred { font-family: var(--mono); font-size: 16px; font-weight: 650; }
 .probe-col .pred.pos { color: var(--ok); }
 .probe-col .pred.neg { color: var(--bad); }
@@ -299,7 +299,7 @@ input[type="range"]::-moz-range-thumb {
   font-family: var(--mono); font-size: 12.5px;
 }
 .mcnemar-grid > div { background: var(--bg-inset); padding: 10px 14px; }
-.mcnemar-grid .mh { color: var(--text-faint); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+.mcnemar-grid .mh { color: var(--text-faint); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
 .mcnemar-grid .mv { color: var(--text); font-size: 16px; }
 .mcnemar-grid .hot { background: rgba(229, 83, 75, 0.10); }
 .mcnemar-grid .hot .mv { color: var(--bad); }
