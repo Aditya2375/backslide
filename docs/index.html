@@ -90,7 +90,7 @@
       </p>
       <form id="probe-form">
         <label class="field-label" for="probe-input">Sentence</label>
-        <textarea id="probe-input" rows="2" spellcheck="false" placeholder="e.g. a film that is not without its charms"></textarea>
+        <textarea id="probe-input" rows="2" maxlength="1000" spellcheck="false" placeholder="e.g. a film that is not without its charms"></textarea>
         <div class="form-row">
           <button type="submit" class="btn" id="probe-submit">Run both builds</button>
         </div>
@@ -150,6 +150,7 @@
         </thead>
         <tbody></tbody>
       </table>
+      <p class="curve-caption">Highlighted row: the bootstrap interval excludes zero.</p>
     </div>
     <div class="gallery-table" id="slice-exemplars"></div>
   </section>
