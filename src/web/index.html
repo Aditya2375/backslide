@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; connect-src 'self' https://huggingface.co https://cdn-lfs.huggingface.co https://cdn-lfs-us-1.huggingface.co; img-src 'self' data:; worker-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="description" content="backslide - model regression detection with paired statistics. Prove whether a new model build regresses on a golden set, entirely in your browser.">
+<title>backslide - prove the new build didn't regress</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">&#8600;</span>
+      <span class="brand-name">backslide</span>
+      <span class="brand-sub">model regression detection</span>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button class="tab is-active" role="tab" aria-selected="true" data-tab="verdict">Verdict</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="examples">Examples</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="stats">Statistics</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="slices">Failure slices</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="method">Method</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="lede">
+    <h1>The new build is half the size.<br>Did it get <em>worse</em>?</h1>
+    <p class="lede-sub">
+      Teams ship quantized, pruned and fine-tuned model builds on faith: overall accuracy
+      moved a point, nobody knows where. backslide runs both builds over the same
+      <strong>golden set of 872 real sentences</strong>, pairs the predictions example by
+      example, and answers with statistics - a bootstrap confidence interval, an exact
+      McNemar test, and a promotion gate that says <strong>ship or hold</strong>. Everything
+      runs in your browser against pinned model revisions. No servers, no API keys.
+    </p>
+    <p class="lede-meta" id="boot-stats">loading&hellip;</p>
+  </section>
+
+  <!-- ======================= VERDICT ======================= -->
+  <section id="tab-verdict" class="panel is-active" role="tabpanel">
+    <h2 class="panel-title">Promotion gate</h2>
+    <p class="panel-note">
+      The candidate is the int8-quantized build of the pinned checkpoint; the incumbent is the
+      full-precision build. The gate ships only when the discordance is not statistically
+      significant <em>and</em> the confidence interval rules out a drop beyond tolerance.
+    </p>
+    <div class="gate-banner" id="verdict-banner" aria-live="polite"></div>
+    <div class="summary-grid" id="verdict-stats" style="margin-top:18px"></div>
+
+    <div class="gate-controls">
+      <h3 class="gate-controls-title">Tune the gate</h3>
+      <p class="panel-note">Every team sets its own bar. Drag the tolerance and watch the verdict recompute from the same evidence.</p>
+      <div class="gate-row">
+        <label class="field-label" for="gate-drop">Tolerated accuracy drop</label>
+        <input type="range" id="gate-drop" min="0" max="3" step="0.1" value="0.5">
+        <span class="mono gate-val" id="gate-drop-val">0.5 pts</span>
+      </div>
+      <div class="gate-row">
+        <label class="field-label" for="gate-alpha">Significance level</label>
+        <select id="gate-alpha">
+          <option value="0.01">0.01 - strict</option>
+          <option value="0.05" selected>0.05 - standard</option>
+          <option value="0.10">0.10 - lenient</option>
+        </select>
+      </div>
+      <ul class="trace gate-reasons" id="gate-reasons"></ul>
+    </div>
+  </section>
+
+  <!-- ======================= EXAMPLES ======================= -->
+  <section id="tab-examples" class="panel" role="tabpanel" hidden>
+    <h2 class="panel-title">Where the builds disagree</h2>
+    <p class="panel-note">
+      Aggregate accuracy hides the mechanism. These are the <span class="mono" id="discord-count"></span>
+      sentences where the two builds give different answers - each one an example the new build
+      flips for better or worse.
+    </p>
+    <div class="chips" id="example-filters" role="group" aria-label="Filter examples"></div>
+    <div class="gallery-table" id="example-list"></div>
+
+    <div class="probe">
+      <h3 class="panel-title" style="font-size:17px">Probe both builds yourself</h3>
+      <p class="panel-note">
+        One sentence proves nothing - but you can watch both builds score it side by side.
+        First run downloads the two pinned model variants (~200 MB, cached by your browser afterwards).
+      </p>
+      <form id="probe-form">
+        <label class="field-label" for="probe-input">Sentence</label>
+        <textarea id="probe-input" rows="2" spellcheck="false" placeholder="e.g. a film that is not without its charms"></textarea>
+        <div class="form-row">
+          <button type="submit" class="btn" id="probe-submit">Run both builds</button>
+        </div>
+      </form>
+      <div class="model-status" id="model-status" hidden>
+        <span id="model-status-text">loading</span>
+        <div class="bar"><div id="model-progress" style="width:0%"></div></div>
+      </div>
+      <div class="probe-result" id="probe-result" hidden></div>
+    </div>
+  </section>
+
+  <!-- ======================= STATISTICS ======================= -->
+  <section id="tab-stats" class="panel" role="tabpanel" hidden>
+    <h2 class="panel-title">The evidence, in full</h2>
+    <p class="panel-note">
+      Paired statistics use both models' answers on the <em>same</em> sentences, which is far
+      more sensitive than comparing two independent accuracy numbers.
+    </p>
+
+    <div class="curves">
+      <div class="curve-box">
+        <h3>Paired bootstrap: accuracy delta (v2 - v1), 10,000 resamples</h3>
+        <canvas id="boot-hist" width="640" height="360"></canvas>
+        <p class="curve-caption" id="boot-caption"></p>
+      </div>
+      <div class="curve-box">
+        <h3>McNemar discordance</h3>
+        <div class="mcnemar-grid" id="mcnemar-grid"></div>
+        <p class="curve-caption" id="mcnemar-caption"></p>
+      </div>
+    </div>
+
+    <div class="summary-grid" id="stats-cards" style="margin-top:24px"></div>
+  </section>
+
+  <!-- ======================= SLICES ======================= -->
+  <section id="tab-slices" class="panel" role="tabpanel" hidden>
+    <h2 class="panel-title">Failure slices</h2>
+    <p class="panel-note">
+      Regressions rarely spread evenly. Each sentence carries deterministic capability tags
+      (negation, comparative, numeric, length); the forest plot shows the per-slice accuracy
+      delta with its bootstrap interval, and the table adds an enrichment test - is this slice
+      holding more than its share of the regressions?
+    </p>
+    <div class="curve-box" style="margin-top:20px">
+      <h3>Per-slice accuracy delta with 95% bootstrap interval</h3>
+      <canvas id="forest" width="640" height="320"></canvas>
+    </div>
+    <div class="sweep-table">
+      <table id="slice-table">
+        <thead>
+          <tr>
+            <th>Slice</th><th>n</th><th>v1 acc</th><th>v2 acc</th><th>delta [95% CI]</th>
+            <th>Regressions</th><th>Enrichment</th><th>Fisher p</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="gallery-table" id="slice-exemplars"></div>
+  </section>
+
+  <!-- ======================= METHOD ======================= -->
+  <section id="tab-method" class="panel" role="tabpanel" hidden>
+    <h2 class="panel-title">Method</h2>
+    <div class="method-body">
+      <h3>What is being compared</h3>
+      <p>
+        Two builds of one pinned checkpoint -
+        <code>Xenova/distilbert-base-uncased-finetuned-sst-2-english</code> at revision
+        <code>0b6928ef</code>: the <strong>v1 incumbent</strong> is the full-precision (fp16) ONNX
+        build, the <strong>v2 candidate</strong> is the int8-quantized build of the same weights.
+        Quantization is the canonical silent-regression source: the int8 artifact halves the
+        fp16 build (67 MB vs 134 MB), and the accuracy cost is assumed, rarely proven.
+      </p>
+      <h3>The golden set</h3>
+      <p>
+        The validation split of GLUE SST-2: 872 real movie-review sentences with gold sentiment
+        labels - a public benchmark, fixed forever, so any future build can be gated against the
+        identical evidence. Each sentence also carries deterministic capability tags
+        (negation, comparatives, numerals, length bands) assigned by transparent rules, so
+        regressions can be localized rather than averaged away.
+      </p>
+      <h3>The statistics</h3>
+      <ul>
+        <li><strong>Paired bootstrap</strong> (10,000 resamples, seed 1337): resample sentences with
+          replacement, recompute the accuracy delta each time, take the percentile interval. Pairing
+          on the same sentences is what makes a 1.5-point gap on 872 examples resolvable.</li>
+        <li><strong>McNemar's test</strong> (exact two-sided binomial): only the 21 discordant
+          sentences carry signal; 17 flips for the worse against 4 for the better gives p = 0.0072.
+          The chi-square approximation agrees (p = 0.0088).</li>
+        <li><strong>Cohen's h</strong>: effect size for two proportions, -0.05 here - small in
+          aggregate, which is exactly why per-slice analysis matters.</li>
+        <li><strong>Fisher exact enrichment</strong>: per slice, a one-sided hypergeometric test of
+          whether regressions concentrate there more than the base rate predicts.</li>
+      </ul>
+      <h3>The gate</h3>
+      <p class="formula">ship  &#8676;  McNemar p &ge; alpha  AND  CI lower bound &ge; -maxDrop</p>
+      <p>
+        Defaults: <code>maxDrop = 0.5</code> points, <code>alpha = 0.05</code>. The gate is honest
+        both ways - a significant regression holds the build, and an inconclusive comparison says
+        so instead of guessing. Tune it on the Verdict tab.
+      </p>
+      <h3>Reproduce every number</h3>
+      <p>
+        <code>node scripts/measure-pair.mjs</code> re-runs both pinned builds over SST-2;
+        <code>node scripts/gen-data.mjs</code> rebuilds the golden set with slice tags;
+        <code>node scripts/compute-snapshot.mjs</code> recomputes every statistic on this page.
+        CI recomputes the snapshot from the committed golden set and fails on any drift.
+      </p>
+      <h3>Honest limits</h3>
+      <ul>
+        <li>One model, one task. The method - paired gating on a golden set - is the point, not
+          this particular checkpoint.</li>
+        <li>Slice tags are transparent heuristics, not human annotation; treat per-slice p-values
+          as triage, not verdicts.</li>
+        <li>Browser wasm arithmetic can drift a last-decimal score from the Node pipeline; every
+          reported number comes from the committed Node-measured artifact, not your browser.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <p>backslide runs entirely in your browser against pinned model revisions. Source, golden data and reproduction scripts: <a href="https://github.com/Aditya2375/backslide">github.com/Aditya2375/backslide</a>.</p>
+</footer>
+
+<script src="./app.js"></script>
+</body>
+</html>

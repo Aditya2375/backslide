@@ -1,0 +1,12 @@
+title = "backslide gitleaks config"
+
+# The bundled demo (docs/app.js, which inlines onnxruntime-web) and the
+# vendored wasm companions (docs/ort/) contain long high-entropy identifiers
+# that trip the generic-api-key rule - e.g. the tokenizer special-token name
+# "unk_token". These are build artifacts, not credentials.
+[allowlist]
+description = "vendored ONNX runtime and bundled demo artifacts"
+paths = [
+  '''docs/app\.js''',
+  '''docs/ort/''',
+]
