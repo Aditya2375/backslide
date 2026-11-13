@@ -22,6 +22,17 @@ let ortConfigured = false;
 async function configureOrt(): Promise<void> {
   if (ortConfigured) return;
   const { env } = await import('@huggingface/transformers');
+  // Test hook: CI serves the pinned weights from a same-origin mirror so the
+  // probe does not depend on Hugging Face's datacenter download speeds.
+  // Same-origin only, so a crafted link can never point the page at a
+  // third-party host (connect-src 'self' blocks cross-origin fetches anyway).
+  const mb = new URLSearchParams(location.search).get('modelBase');
+  if (mb) {
+    const u = new URL(mb, location.origin);
+    if (u.origin === location.origin) {
+      (env as { remoteHost?: string }).remoteHost = u.href.replace(/\/$/, '');
+    }
+  }
   const onnx = (env.backends as Record<string, unknown> | undefined)?.['onnx'] as { wasm?: OrtWasmEnv } | undefined;
   if (onnx?.wasm) {
     onnx.wasm.wasmPaths = {

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; connect-src 'self' https://huggingface.co https://cdn-lfs.huggingface.co https://cdn-lfs-us-1.huggingface.co https://*.cdn.hf.co https://cas-bridge.xethub.hf.co; img-src 'self' data:; worker-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; style-src 'self'; connect-src 'self' https://huggingface.co https://cdn-lfs.huggingface.co https://cdn-lfs-us-1.huggingface.co https://*.cdn.hf.co https://cas-bridge.xethub.hf.co; img-src 'self' data:; worker-src 'self' blob:; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="description" content="backslide - model regression detection with paired statistics. Prove whether a new model build regresses on a golden set, entirely in your browser.">
 <title>backslide - prove the new build didn't regress</title>
 <link rel="stylesheet" href="./style.css">

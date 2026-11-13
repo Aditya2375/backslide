@@ -48,6 +48,7 @@ jobs:
         run: |
           rm -rf docs/
           node scripts/build-web.mjs
+      - run: node scripts/download-models.mjs
       - run: node tests/browser-smoke.mjs
       - name: committed demo matches a fresh build
         run: git diff --exit-code --stat docs/

@@ -6,9 +6,10 @@
  * (ubuntu-latest ships google-chrome). No npm deps.
  *
  * The live two-build probe downloads ~200 MB of pinned model weights, so it
- * runs only with SMOKE_LIVE=1 (CI sets it); local quick runs skip it.
+ * runs only with SMOKE_LIVE=1 (CI sets it and mirrors the weights locally first); local quick runs skip it.
  */
 import { spawn } from 'node:child_process';
+import { symlinkSync, rmSync } from 'node:fs';
 
 const HTTP_PORT = 8937;
 const CDP_PORT = 9339;
@@ -77,7 +78,13 @@ const evaluate = async (expression) => {
 
 await cdp('Runtime.enable');
 await cdp('Page.enable');
-await cdp('Page.navigate', { url: `http://127.0.0.1:${HTTP_PORT}/` });
+if (LIVE) {
+  // Mirror of the pinned weights, downloaded by scripts/download-models.mjs.
+  const link = `${root}docs/hf-mirror`;
+  try { rmSync(link, { force: true }); } catch {}
+  symlinkSync('../.model-cache', link);
+}
+await cdp('Page.navigate', { url: `http://127.0.0.1:${HTTP_PORT}/${LIVE ? '?modelBase=/hf-mirror' : ''}` });
 
 // Boot: artifacts load and the meta line carries the pinned evidence.
 await waitFor(() => evaluate(`(document.getElementById('boot-stats').textContent || '').includes('McNemar p=0.0072')`), 'boot');
@@ -171,7 +178,7 @@ if (LIVE) {
     texts: [...document.querySelectorAll('#probe-result .probe-col')].map(c => c.textContent),
     flip: document.querySelector('#probe-result .probe-flip').textContent,
   })`);
-  check('live probe scores with both pinned builds', probe.cols === 2 && probe.texts.every((t) => /p=0\\.\\d{4}/.test(t)), JSON.stringify(probe.texts).slice(0, 120));
+  check('live probe scores with both pinned builds', probe.cols === 2 && probe.texts.every((t) => /p=0\.\d{4}/.test(t)), JSON.stringify(probe.texts).slice(0, 120));
 
   // XSS through the probe path: input must never become markup.
   await evaluate(`(() => {

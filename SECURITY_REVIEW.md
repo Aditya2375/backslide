@@ -187,3 +187,10 @@ memory; nothing persists.
 - **CI minutes**: the workflow runs on push/PR only; no scheduled runs. The
   live-probe smoke downloads ~200 MB of pinned weights; it is the honest
   end-to-end proof of the wasm path and worth the minutes.
+
+Addendum (CI mirror fix): the `?modelBase=` query parameter is a test hook that
+redirects model fetches. It is resolved against the page origin and applied
+only when the result is same-origin, so a crafted link cannot make a visitor's
+browser fetch weights from a third-party host; connect-src 'self' blocks any
+cross-origin remainder. The mirror itself (docs/hf-mirror, .model-cache/) is
+gitignored and exists only inside the CI job.

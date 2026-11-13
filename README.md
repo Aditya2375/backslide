@@ -60,7 +60,7 @@ node scripts/gen-data.mjs /tmp/pair-out.json                                # go
 node scripts/compute-snapshot.mjs                                           # every statistic on the page
 ```
 
-CI recomputes the snapshot from the committed golden set and fails on any drift, rebuilds the site strictly from source, runs the browser smoke suite including the live probe, and scans history for secrets.
+CI recomputes the snapshot from the committed golden set and fails on any drift, rebuilds the site strictly from source, runs the browser smoke suite including the live probe against a CI-local mirror of the pinned weights, and scans history for secrets.
 
 ## Repository layout
 
