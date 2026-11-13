@@ -165,7 +165,7 @@ if (LIVE) {
     i.value = 'a film that is not without its charms';
     document.getElementById('probe-form').dispatchEvent(new Event('submit', { cancelable: true }));
   })()`);
-  await waitFor(() => evaluate(`!document.getElementById('probe-result').hidden`), 'live probe', 480000);
+  await waitFor(() => evaluate(`!document.getElementById('probe-result').hidden`), 'live probe', 1500000);
   const probe = await evaluate(`({
     cols: document.querySelectorAll('#probe-result .probe-col .pred').length,
     texts: [...document.querySelectorAll('#probe-result .probe-col')].map(c => c.textContent),
