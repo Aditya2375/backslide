@@ -98,24 +98,14 @@ const signedPts = (x: number, digits = 2): string => `${x >= 0 ? '+' : ''}${pts(
 let pairsIndex: IndexEntry[] = [];
 let golden: Golden;
 let snap: Snapshot;
-const artifactCache = new Map<string, Promise<{ golden: Golden; snap: Snapshot }>>();
+// The page loads one bundle (fixed URL, see scripts/build-web.mjs); pair
+// switching then reads from memory, never from a user-built request URL.
+const artifacts = new Map<string, { golden: Golden; snap: Snapshot }>();
 
 function loadPair(slug: string): Promise<{ golden: Golden; snap: Snapshot }> {
-  let p = artifactCache.get(slug);
-  if (!p) {
-    p = Promise.all([
-      fetch(`./data/pairs/${slug}.golden.json`).then((r) => {
-        if (!r.ok) throw new Error(`golden ${slug}: HTTP ${r.status}`);
-        return r.json() as Promise<Golden>;
-      }),
-      fetch(`./data/pairs/${slug}.snapshot.json`).then((r) => {
-        if (!r.ok) throw new Error(`snapshot ${slug}: HTTP ${r.status}`);
-        return r.json() as Promise<Snapshot>;
-      }),
-    ]).then(([g, s]) => ({ golden: g, snap: s }));
-    artifactCache.set(slug, p);
-  }
-  return p;
+  const hit = artifacts.get(slug);
+  if (!hit) return Promise.reject(new Error(`unknown pair: ${slug}`));
+  return Promise.resolve(hit);
 }
 
 function v1Name(): string {
@@ -1226,11 +1216,17 @@ function renderAll(): void {
 
 /* ---------------- boot ---------------- */
 async function main(): Promise<void> {
-  const idx = await fetch('./data/pairs/index.json').then((r) => {
-    if (!r.ok) throw new Error(`index: HTTP ${r.status}`);
-    return r.json() as Promise<{ pairs: IndexEntry[] }>;
+  const bundle = await fetch('./data/pairs/bundle.json').then((r) => {
+    if (!r.ok) throw new Error(`bundle: HTTP ${r.status}`);
+    return r.json() as Promise<{
+      pairs: IndexEntry[];
+      artifacts: Record<string, { golden: Golden; snapshot: Snapshot }>;
+    }>;
   });
-  pairsIndex = idx.pairs;
+  pairsIndex = bundle.pairs;
+  for (const [slug, a] of Object.entries(bundle.artifacts)) {
+    artifacts.set(slug, { golden: a.golden, snap: a.snapshot });
+  }
   const requested = new URLSearchParams(location.search).get('pair');
   const initial = pairsIndex.some((p) => p.slug === requested)
     ? requested!

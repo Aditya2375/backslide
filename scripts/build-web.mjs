@@ -8,7 +8,7 @@
  * 3. Fail if any runtime path index.html references is missing.
  */
 import { build } from 'esbuild';
-import { copyFileSync, mkdirSync, rmSync, existsSync, readdirSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync, rmSync, existsSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -43,6 +43,19 @@ for (const f of readdirSync(join(ROOT, 'data', 'pairs'))) {
   copyFileSync(join(ROOT, 'data', 'pairs', f), join(DOCS, 'data', 'pairs', f));
 }
 
+// One bundle for the page: a single fixed-URL fetch carries the index plus
+// every pair's golden set and snapshot, so pair switching needs no network
+// and no user-built request URLs.
+const bundleIndex = JSON.parse(readFileSync(join(ROOT, 'data', 'pairs', 'index.json'), 'utf8'));
+const bundle = { pairs: bundleIndex.pairs, artifacts: {} };
+for (const p of bundleIndex.pairs) {
+  bundle.artifacts[p.slug] = {
+    golden: JSON.parse(readFileSync(join(ROOT, 'data', 'pairs', `${p.slug}.golden.json`), 'utf8')),
+    snapshot: JSON.parse(readFileSync(join(ROOT, 'data', 'pairs', `${p.slug}.snapshot.json`), 'utf8')),
+  };
+}
+writeFileSync(join(DOCS, 'data', 'pairs', 'bundle.json'), JSON.stringify(bundle));
+
 // Try-it samples for the your-models tab.
 mkdirSync(join(DOCS, 'samples'), { recursive: true });
 for (const f of readdirSync(join(ROOT, 'examples', 'ci-gate'))) {
@@ -59,6 +72,7 @@ for (const f of [
   'ort/ort-wasm-simd-threaded.wasm',
   'ort/ort-wasm-simd-threaded.mjs',
   'data/pairs/index.json',
+  'data/pairs/bundle.json',
   'data/pairs/sst2-int8.golden.json',
   'data/pairs/sst2-int8.snapshot.json',
   'samples/sample-classification.csv',
