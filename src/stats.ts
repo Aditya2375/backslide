@@ -322,3 +322,191 @@ export function sliceEnrichment(
   }
   return out.sort((a, b) => b.regressions - a.regressions || a.fisherP - b.fisherP);
 }
+
+/* ---------------- v2: regression + multiclass + shared helpers ---------------- */
+
+/**
+ * Paired bootstrap confidence interval for the mean of any per-example
+ * quantity (for regression: the per-example absolute-error delta e2 - e1).
+ * Same resampling scheme and PRNG as bootstrapDelta, so results stay
+ * deterministic for a fixed seed.
+ */
+export function bootstrapMean(
+  values: number[],
+  resamples = 10000,
+  seed = 1337,
+  level = 0.95,
+): { mean: number; lo: number; hi: number; level: number; resamples: number; samples: number[] } {
+  const n = values.length;
+  let s = 0;
+  for (const v of values) s += v;
+  const mean = s / n;
+  const rand = mulberry32(seed);
+  const samples: number[] = new Array(resamples);
+  for (let r = 0; r < resamples; r++) {
+    let acc = 0;
+    for (let i = 0; i < n; i++) acc += values[(rand() * n) | 0]!;
+    samples[r] = acc / n;
+  }
+  samples.sort((a, b) => a - b);
+  const alpha = 1 - level;
+  return {
+    mean,
+    lo: quantileSorted(samples, alpha / 2),
+    hi: quantileSorted(samples, 1 - alpha / 2),
+    level,
+    resamples,
+    samples,
+  };
+}
+
+/**
+ * Sign test on per-example error comparisons: the regression-task analog of
+ * McNemar. `worse` rows have a larger absolute error under v2, `better` rows
+ * a smaller one; ties are excluded. Exact two-sided binomial p-value.
+ */
+export function signTest(worse: number, better: number): {
+  worse: number; better: number; n: number; pExact: number;
+} {
+  const n = worse + better;
+  if (n === 0) return { worse, better, n: 0, pExact: 1 };
+  return { worse, better, n, pExact: exactTwoSidedBinomial(Math.min(worse, better), n, 0.5) };
+}
+
+export interface ClassStat {
+  label: string;
+  n: number;
+  accV1: number;
+  accV2: number;
+  delta: number;
+  regressions: number;
+  improvements: number;
+}
+
+/** Per-class breakdown for (multi-class) classification pairs. */
+export function classStats(
+  examples: Array<{ label: number; c1: 0 | 1; c2: 0 | 1 }>,
+  labels: string[],
+): ClassStat[] {
+  const out: ClassStat[] = [];
+  for (let k = 0; k < labels.length; k++) {
+    const rows = examples.filter((e) => e.label === k);
+    if (rows.length === 0) continue;
+    const a1 = rows.reduce((s, e) => s + e.c1, 0) / rows.length;
+    const a2 = rows.reduce((s, e) => s + e.c2, 0) / rows.length;
+    out.push({
+      label: labels[k]!,
+      n: rows.length,
+      accV1: a1,
+      accV2: a2,
+      delta: a2 - a1,
+      regressions: rows.filter((e) => e.c1 === 1 && e.c2 === 0).length,
+      improvements: rows.filter((e) => e.c1 === 0 && e.c2 === 1).length,
+    });
+  }
+  return out.sort((a, b) => a.delta - b.delta);
+}
+
+export interface RegSliceStat {
+  slice: string;
+  n: number;
+  errV1: number;
+  errV2: number;
+  delta: number;
+  lo: number;
+  hi: number;
+  worse: number;
+  better: number;
+}
+
+/** Per-slice error-delta stats for regression pairs. */
+export function regressionSliceStats(
+  examples: Array<{ slice: string; err1: number; err2: number }>,
+  resamples = 4000,
+  seed = 4242,
+  tieEps = 1e-9,
+): RegSliceStat[] {
+  const bySlice = new Map<string, Array<{ err1: number; err2: number }>>();
+  for (const ex of examples) {
+    const arr = bySlice.get(ex.slice) ?? [];
+    arr.push(ex);
+    bySlice.set(ex.slice, arr);
+  }
+  const out: RegSliceStat[] = [];
+  let i = 0;
+  for (const [slice, rows] of bySlice) {
+    const deltas = rows.map((r) => r.err2 - r.err1);
+    const b = bootstrapMean(deltas, resamples, seed + i * 101);
+    out.push({
+      slice,
+      n: rows.length,
+      errV1: rows.reduce((s, r) => s + r.err1, 0) / rows.length,
+      errV2: rows.reduce((s, r) => s + r.err2, 0) / rows.length,
+      delta: b.mean, lo: b.lo, hi: b.hi,
+      worse: rows.filter((r) => r.err2 > r.err1 + tieEps).length,
+      better: rows.filter((r) => r.err1 > r.err2 + tieEps).length,
+    });
+    i++;
+  }
+  return out.sort((a, b) => b.delta - a.delta);
+}
+
+export interface RegressionGateConfig {
+  /** Largest tolerable increase in mean absolute error, in target units. */
+  maxIncrease: number;
+  /** Significance level for the sign test. */
+  alpha: number;
+}
+
+export interface RegressionVerdictInput {
+  errDelta: number;
+  ciLo: number;
+  ciHi: number;
+  pSign: number;
+  worse: number;
+  better: number;
+  unit: string;
+}
+
+/**
+ * Promotion gate for regression builds. Ship only if the error increase is
+ * not statistically significant AND the CI's upper bound stays within the
+ * tolerated increase. Symmetric with the classification gate: honest both
+ * ways, inconclusive says so.
+ */
+export function regressionVerdict(input: RegressionVerdictInput, gate: RegressionGateConfig): Verdict {
+  const significant = input.pSign < gate.alpha;
+  const withinTolerance = input.ciHi <= gate.maxIncrease;
+  const fmt = (x: number): string => `${x >= 0 ? '+' : ''}${x.toFixed(4)} ${input.unit}`;
+  const reasons: string[] = [];
+  if (significant) {
+    reasons.push(
+      `sign test p=${fmtP(input.pSign)} < ${gate.alpha}: the ${input.worse} rows with larger error vs ` +
+      `${input.better} with smaller are not noise.`,
+    );
+  } else {
+    reasons.push(
+      `sign test p=${fmtP(input.pSign)} >= ${gate.alpha}: the error changes are consistent with chance.`,
+    );
+  }
+  if (withinTolerance) {
+    reasons.push(
+      `95% CI upper bound ${fmt(input.ciHi)} stays within the tolerated ` +
+      `${gate.maxIncrease.toFixed(4)} ${input.unit} increase.`,
+    );
+  } else {
+    reasons.push(
+      `95% CI upper bound ${fmt(input.ciHi)} breaches the tolerated ` +
+      `${gate.maxIncrease.toFixed(4)} ${input.unit} increase.`,
+    );
+  }
+  const ship = !significant && withinTolerance;
+  const headline = ship
+    ? `Ship it. No significant error increase (delta ${fmt(input.errDelta)}).`
+    : significant && !withinTolerance
+      ? `Hold the build. Significant error increase (delta ${fmt(input.errDelta)}).`
+      : significant
+        ? `Hold the build. The error increase is significant (delta ${fmt(input.errDelta)}).`
+        : `Hold the build. Inconclusive, but the CI breaches the tolerated increase (delta ${fmt(input.errDelta)}).`;
+  return { ship, headline, reasons };
+}

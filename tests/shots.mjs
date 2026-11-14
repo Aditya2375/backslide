@@ -52,12 +52,24 @@ await cdp('Page.enable');
 await cdp('Page.navigate', { url: `http://127.0.0.1:${HTTP_PORT}/` });
 await waitFor(() => evaluate(`(document.getElementById('boot-stats').textContent || '').includes('McNemar')`), 'boot');
 
-for (const tab of ['verdict', 'examples', 'stats', 'slices', 'method']) {
+for (const tab of ['verdict', 'examples', 'stats', 'slices', 'byo', 'method']) {
   await evaluate(`document.querySelector('.tab[data-tab="${tab}"]').click()`);
   await new Promise((r) => setTimeout(r, 400));
-  await evaluate(`window.scrollTo(0, ${tab === 'verdict' ? 0 : 0})`);
+  await evaluate(`window.scrollTo(0, 0)`);
   const shot = await cdp('Page.captureScreenshot', { format: 'png' });
   writeFileSync(`${outdir}/${tab}.png`, Buffer.from(shot.result.data, 'base64'));
   console.log(`captured ${tab}`);
+}
+
+// the regression pair, verdict + statistics
+await evaluate(`[...document.querySelectorAll('#pair-switch .pair-card')].find(c => c.querySelector('.pc-title').textContent.includes('housing')).click()`);
+await waitFor(() => evaluate(`document.getElementById('boot-stats').textContent.includes('sign test p=')`), 'housing load');
+for (const tab of ['verdict', 'stats', 'examples']) {
+  await evaluate(`document.querySelector('.tab[data-tab="${tab}"]').click()`);
+  await new Promise((r) => setTimeout(r, 400));
+  await evaluate(`window.scrollTo(0, 0)`);
+  const shot = await cdp('Page.captureScreenshot', { format: 'png' });
+  writeFileSync(`${outdir}/housing-${tab}.png`, Buffer.from(shot.result.data, 'base64'));
+  console.log(`captured housing-${tab}`);
 }
 cleanup(0);

@@ -159,6 +159,48 @@ const exemplars = await evaluate(`({
 })`);
 check('negation exemplars render with enrichment stats', exemplars.boxes >= 1 && exemplars.first.startsWith('negation'), exemplars.first);
 
+// Pair switcher: three worked pairs, switching re-renders the verdict.
+const cards0 = await evaluate(`[...document.querySelectorAll('#pair-switch .pair-card')].map(c => ({
+  title: c.querySelector('.pc-title').textContent,
+  badge: c.querySelector('.pc-badge').textContent,
+}))`);
+check('pair switcher lists all 3 worked pairs with verdict badges',
+  cards0.length === 3 && cards0.every((c) => /ship|hold/.test(c.badge)), JSON.stringify(cards0.map((c) => c.badge)));
+await evaluate(`[...document.querySelectorAll('#pair-switch .pair-card')].find(c => c.querySelector('.pc-title').textContent.includes('housing')).click()`);
+await waitFor(() => evaluate(`document.getElementById('boot-stats').textContent.includes('sign test p=')`), 'housing pair load');
+const housing = await evaluate(`({
+  head: document.querySelector('#verdict-banner .gb-head').textContent,
+  stats: [...document.querySelectorAll('#verdict-stats .stat-k')].map(e => e.textContent).join('|'),
+  gateLabel: document.getElementById('gate-drop-label').textContent,
+})`);
+check('regression pair renders MAE cards and error-increase gate',
+  housing.head.startsWith('Hold the build.') && housing.stats.includes('v1 MAE') && housing.gateLabel.includes('error increase'),
+  housing.head.slice(0, 60));
+
+// Your models: upload the sample CSV through the real file input.
+await evaluate(`document.querySelector('.tab[data-tab="byo"]').click()`);
+const doc = await cdp('DOM.getDocument');
+const fileNode = await cdp('DOM.querySelector', { nodeId: doc.result.root.nodeId, selector: '#byo-file' });
+await cdp('DOM.setFileInputFiles', { nodeId: fileNode.result.nodeId, files: [`${root}examples/ci-gate/sample-classification.csv`] });
+await evaluate(`document.getElementById('byo-form').dispatchEvent(new Event('submit', { cancelable: true }))`);
+await waitFor(() => evaluate(`!document.getElementById('byo-results').hidden`), 'byo analysis');
+const byo = await evaluate(`({
+  head: document.querySelector('#byo-verdict .gb-head').textContent,
+  cards: document.querySelectorAll('#byo-stats .stat').length,
+  status: document.getElementById('byo-status').textContent,
+})`);
+check('your-models upload gates the sample CSV in-page',
+  byo.head.startsWith('Ship it.') && byo.cards === 4 && byo.status.includes('400'), JSON.stringify(byo).slice(0, 140));
+const byoXss = await evaluate(`(() => {
+  const s = document.getElementById('byo-status');
+  return document.querySelector('#byo-results img') !== null;
+})()`);
+check('byo rendering injects no markup', !byoXss);
+
+// back to the SST-2 pair for the method and probe checks
+await evaluate(`[...document.querySelectorAll('#pair-switch .pair-card')].find(c => c.querySelector('.pc-title').textContent.includes('SST-2')).click()`);
+await waitFor(() => evaluate(`document.getElementById('boot-stats').textContent.includes('McNemar p=0.0072')`), 'sst2 reload');
+
 // Method tab states pins and honest limits.
 await evaluate(`document.querySelector('.tab[data-tab="method"]').click()`);
 const method = await evaluate(`document.querySelector('#tab-method').textContent`);

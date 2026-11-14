@@ -29,7 +29,8 @@ jobs:
         # from the committed golden set - no hand-edited evidence
         run: |
           node scripts/compute-snapshot.mjs
-          git diff --exit-code --stat data/snapshot.json
+          node scripts/gen-samples.mjs
+          git diff --exit-code --stat data/ examples/
   browser-smoke:
     timeout-minutes: 35
     runs-on: ubuntu-latest

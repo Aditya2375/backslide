@@ -194,3 +194,54 @@ only when the result is same-origin, so a crafted link cannot make a visitor's
 browser fetch weights from a third-party host; connect-src 'self' blocks any
 cross-origin remainder. The mirror itself (docs/hf-mirror, .model-cache/) is
 gitignored and exists only inside the CI job.
+
+## v2 additions (2026-11-14): multi-pair, your-models upload, CLI, Action
+
+The v2 surface adds user-controlled input where v1 had none. Each new path,
+with the abuse case and the control:
+
+A. **Your-models CSV upload** - the only untrusted-input path. The file is
+   read with File.text() and parsed by src/parse.ts: a character-level CSV
+   parser with no eval, no regex backtracking (no regexes at all in the
+   parser), an 8 MB byte cap and a 20,000-row cap, both enforced with hard
+   errors. Every value stays a string until explicitly validated; regression
+   mode rejects non-numeric cells with a row-identifying error. All parsed
+   values reach the DOM only through textContent (the check-docs grep and the
+   semgrep no-inner-html rule cover src/web/; the smoke suite includes a
+   markup-injection check on this path). Duplicate ids and missing columns
+   are rejected, never silently coerced. No prototype-pollution vector:
+   columns resolve by fixed-name lookup, never by assigning user keys onto
+   objects. The file never leaves the page - connect-src 'self' plus the
+   pinned model hosts makes exfiltration impossible even if markup were
+   injected; there is no fetch on the BYO path at all.
+
+B. **?pair= URL parameter** - used to select a worked pair. It is validated
+   against the committed data/pairs/index.json before use; an unknown value
+   falls back to the default pair. It can therefore never steer a fetch off
+   the three known same-origin artifact paths (fetch template takes a
+   validated slug only). The modelBase probe parameter from v1 remains
+   same-origin-only as documented above.
+
+C. **Report download** - a Blob of text/markdown built from computed numbers
+   and the user's own file contents, offered via anchor download. No
+   navigation, no execution context change; revokes its object URL after use.
+
+D. **CLI (cli/backslide.mjs)** - runs locally/in CI on the user's own files.
+   Zero dependencies (nothing to audit beyond Node itself), no network
+   access, writes only the report paths the caller named. Argument parsing
+   treats --quiet as a flag and every other option as taking exactly one
+   value; file contents go through the same parser (byte cap lifted via the
+   explicit maxBytes parameter - the operator's own machine, their own
+   files). Exit codes are 0/1/2; no shell interpolation anywhere (the
+   Action invokes it with fixed argument lists).
+
+E. **Composite Action (action.yml)** - all inputs flow through environment
+   variables (env: block), never interpolated into the run: line directly,
+   so a crafted input string cannot break out into shell. setup-node is
+   pinned by SHA, same as the rest of the workflows. The Action builds from
+   the action ref's own source (npm ci && npm run build), so it cannot be
+   made to run caller-supplied code.
+
+F. **Sample CSVs** - derived from the committed golden sets by
+   scripts/gen-samples.mjs; check-docs regenerates them and fails on drift,
+   so they cannot be hand-edited into carrying anything else.

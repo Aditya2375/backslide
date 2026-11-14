@@ -1,8 +1,8 @@
-// Build the golden-set artifacts for backslide from the measured pair output.
-// Input: /tmp/pair-out.json (from measure-pair.mjs) + assigns slice tags.
-// Output: data/golden.json (examples+slices+paired outcomes, compact)
+// Build the golden-set artifact for the SST-2 pair from the measured pair
+// output. Input: /tmp/pair-out.json (from measure-pair.mjs) + slice tags.
+// Output: data/pairs/sst2-int8.golden.json (examples+slices+paired outcomes)
 // Usage: node scripts/gen-data.mjs /tmp/pair-out.json
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 
 const [pairPath] = process.argv.slice(2);
 const { model, revision, examples } = JSON.parse(readFileSync(pairPath, 'utf8'));
@@ -29,12 +29,15 @@ const golden = examples.map((ex) => ({
   v2: { p: ex.v2.pred, s: Math.round(ex.v2.score * 1e4) / 1e4, c: ex.v2.correct },
 }));
 
-mkdirSync('docs/data', { recursive: true });
-writeFileSync('data/golden.json', JSON.stringify({
+writeFileSync('data/pairs/sst2-int8.golden.json', JSON.stringify({
+  slug: 'sst2-int8',
+  title: 'SST-2 sentiment: fp16 build vs int8 build',
+  task: 'classification',
+  description: 'sentiment (SST-2 validation split, GLUE benchmark)',
+  labels: ['negative', 'positive'],
   model, revision,
   measured: '2026-11-13',
   variants: { v1: 'fp16', v2: 'int8' },
-  task: 'sentiment (SST-2 validation split, GLUE benchmark)',
   slices: RULES.map(([n]) => n).concat(['long', 'short', 'plain']),
   examples: golden,
 }));
@@ -51,6 +54,3 @@ console.log('n =', n);
 for (const [name, s] of Object.entries(bySlice)) {
   console.log(`${name.padEnd(12)} n=${String(s.n).padStart(3)} v1=${(100 * s.v1 / s.n).toFixed(1)}% v2=${(100 * s.v2 / s.n).toFixed(1)}% regressions=${s.reg} improvements=${s.imp}`);
 }
-const regTexts = golden.filter((e) => e.v1.c === 1 && e.v2.c === 0);
-console.log('\nregression examples:');
-for (const e of regTexts) console.log(` [${e.slice}] ${e.text.slice(0, 100)}`);

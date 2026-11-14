@@ -1,0 +1,41 @@
+# Example: gate two committed sample prediction files with the backslide CLI.
+# This is a usage demo - it runs the gate and posts the reports into the job
+# summary. A real pipeline would drop continue-on-error so a hold fails the PR.
+name: gate-example
+on: [push]
+permissions:
+  contents: read
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020   # v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci && npm run build
+      - name: classification gate (AG News pruned build)
+        id: cls
+        continue-on-error: true
+        run: |
+          set +e
+          node cli/backslide.mjs compare --combined examples/ci-gate/sample-classification.csv \
+            --names "full build,pruned build" --md /tmp/cls.md
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+          set -e
+          cat /tmp/cls.md >> "$GITHUB_STEP_SUMMARY"
+      - name: regression gate (housing shrunk build)
+        id: reg
+        continue-on-error: true
+        run: |
+          set +e
+          node cli/backslide.mjs compare --combined examples/ci-gate/sample-regression.csv \
+            --task regression --unit '$100k' --names "full build,shrunk build" --md /tmp/reg.md
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+          set -e
+          cat /tmp/reg.md >> "$GITHUB_STEP_SUMMARY"
+      - name: outcomes
+        run: |
+          echo "classification gate exit=${{ steps.cls.outputs.exit }} (0 ship / 1 hold)"
+          echo "regression gate exit=${{ steps.reg.outputs.exit }} (0 ship / 1 hold)"

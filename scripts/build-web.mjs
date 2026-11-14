@@ -1,10 +1,10 @@
 /**
  * Build the self-hosted demo into docs/ (GitHub Pages serves /docs from main,
  * so the built bundle is committed):
- * 1. esbuild src/web/app.ts -> docs/app.js (IIFE, minified; stats.ts and the
- *    lazy probe adapter are bundled from source).
- * 2. Copy index.html, style.css, the single-threaded ONNX wasm runtime and
- *    the measured data artifacts.
+ * 1. esbuild src/web/app.ts -> docs/app.js (IIFE, minified; stats, analysis
+ *    and the lazy probe adapter are bundled from source).
+ * 2. Copy index.html, style.css, the single-threaded ONNX wasm runtime, the
+ *    measured data artifacts and the try-it samples.
  * 3. Fail if any runtime path index.html references is missing.
  */
 import { build } from 'esbuild';
@@ -37,10 +37,18 @@ for (const f of readdirSync(join(ROOT, 'ort'))) {
   copyFileSync(join(ROOT, 'ort', f), join(DOCS, 'ort', f));
 }
 
-// Measured artifacts: golden set + precomputed statistics snapshot.
-mkdirSync(join(DOCS, 'data'), { recursive: true });
-for (const f of ['golden.json', 'snapshot.json']) {
-  copyFileSync(join(ROOT, 'data', f), join(DOCS, 'data', f));
+// Measured artifacts: every pair's golden set + statistics snapshot + index.
+mkdirSync(join(DOCS, 'data', 'pairs'), { recursive: true });
+for (const f of readdirSync(join(ROOT, 'data', 'pairs'))) {
+  copyFileSync(join(ROOT, 'data', 'pairs', f), join(DOCS, 'data', 'pairs', f));
+}
+
+// Try-it samples for the your-models tab.
+mkdirSync(join(DOCS, 'samples'), { recursive: true });
+for (const f of readdirSync(join(ROOT, 'examples', 'ci-gate'))) {
+  if (f.endsWith('.csv')) {
+    copyFileSync(join(ROOT, 'examples', 'ci-gate', f), join(DOCS, 'samples', f));
+  }
 }
 
 // Sanity: every runtime path the page needs must exist.
@@ -50,8 +58,11 @@ for (const f of [
   'style.css',
   'ort/ort-wasm-simd-threaded.wasm',
   'ort/ort-wasm-simd-threaded.mjs',
-  'data/golden.json',
-  'data/snapshot.json',
+  'data/pairs/index.json',
+  'data/pairs/sst2-int8.golden.json',
+  'data/pairs/sst2-int8.snapshot.json',
+  'samples/sample-classification.csv',
+  'samples/sample-regression.csv',
 ]) {
   if (!existsSync(join(DOCS, f))) throw new Error(`docs build missing ${f}`);
 }

@@ -1,9 +1,9 @@
 {
   "name": "backslide",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "Model regression detection: prove with paired statistics whether a new model build regresses on a golden set, running entirely in the browser",
+  "description": "Model regression detection: prove with paired statistics whether a new model build regresses on a golden set - in the browser, from the CLI, or as a GitHub Action",
   "engines": {
     "node": ">=22"
   },

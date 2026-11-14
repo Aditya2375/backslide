@@ -1,0 +1,89 @@
+name: backslide gate
+description: >-
+  Gate a candidate model build against its incumbent with paired statistics.
+  Posts a markdown report into the job summary and fails the job on a hold.
+author: Aditya2375
+branding:
+  icon: activity
+  color: orange
+inputs:
+  combined:
+    description: 'One CSV with id,gold,v1,v2[,slice]. Give this or the three separate files.'
+    required: false
+  gold:
+    description: 'CSV with id,gold (when not using combined)'
+    required: false
+  v1:
+    description: 'CSV with id,prediction for the incumbent build'
+    required: false
+  v2:
+    description: 'CSV with id,prediction for the candidate build'
+    required: false
+  task:
+    description: 'auto, classification or regression'
+    required: false
+    default: 'auto'
+  max-drop:
+    description: 'Tolerated accuracy drop in points (classification)'
+    required: false
+    default: '0.5'
+  max-increase:
+    description: 'Tolerated MAE increase in target units (regression)'
+    required: false
+    default: '0.02'
+  alpha:
+    description: 'Significance level'
+    required: false
+    default: '0.05'
+  unit:
+    description: 'Regression target unit label'
+    required: false
+    default: 'units'
+  node-version:
+    description: 'Node version for the engine build'
+    required: false
+    default: '22'
+outputs:
+  verdict:
+    description: 'ship or hold'
+    value: ${{ steps.gate.outputs.verdict }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020   # v4
+      with:
+        node-version: ${{ inputs.node-version }}
+    - name: build the engine
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: |
+        npm ci --silent
+        npm run build
+    - name: run the gate
+      id: gate
+      shell: bash
+      env:
+        COMBINED: ${{ inputs.combined }}
+        GOLD: ${{ inputs.gold }}
+        V1: ${{ inputs.v1 }}
+        V2: ${{ inputs.v2 }}
+        TASK: ${{ inputs.task }}
+        MAX_DROP: ${{ inputs.max-drop }}
+        MAX_INCREASE: ${{ inputs.max-increase }}
+        ALPHA: ${{ inputs.alpha }}
+        UNIT: ${{ inputs.unit }}
+      run: |
+        set +e
+        if [ -n "$COMBINED" ]; then
+          SRC="--combined $COMBINED"
+        else
+          SRC="--gold $GOLD --v1 $V1 --v2 $V2"
+        fi
+        node "${{ github.action_path }}/cli/backslide.mjs" compare $SRC \
+          --task "$TASK" --max-drop "$MAX_DROP" --max-increase "$MAX_INCREASE" \
+          --alpha "$ALPHA" --unit "$UNIT" --md "$RUNNER_TEMP/backslide-report.md"
+        code=$?
+        set -e
+        cat "$RUNNER_TEMP/backslide-report.md" >> "$GITHUB_STEP_SUMMARY"
+        if [ "$code" -eq 0 ]; then echo "verdict=ship" >> "$GITHUB_OUTPUT"; else echo "verdict=hold" >> "$GITHUB_OUTPUT"; fi
+        exit "$code"
