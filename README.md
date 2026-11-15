@@ -141,3 +141,7 @@ docs/               built site, served by GitHub Pages
 - 31 unit tests pin the statistics to known values (textbook Fisher/McNemar/sign-test/erfc constants, the measured golden-set numbers, parser edge cases).
 - 21 browser smoke checks (23 with `SMOKE_LIVE=1`) cover boot, pair switching, gate interactivity, filters, canvases, the your-models upload flow, the live two-build probe and markup-injection safety.
 - No backend, no tracking, no keys; the page's CSP allows only itself and the pinned model hosts. Uploaded CSVs are parsed as text and never leave the page.
+
+## License
+
+Licensed under either of [MIT](LICENSE-MIT) or [Apache License 2.0](LICENSE-APACHE) at your option.
